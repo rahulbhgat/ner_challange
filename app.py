@@ -1,51 +1,51 @@
-# app.py
-
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
+import os
 import spacy
 import requests
+from fastapi import FastAPI, Form
+from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
+# Load spaCy model for NER
+nlp = spacy.load("en_core_web_sm")
+
+# Hugging Face Inference API URL and Token
+HF_API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
+HF_API_TOKEN = os.getenv("HUGGINGFACE_API_TOKEN")
 
 app = FastAPI()
 
-# Serve static files at /static
-app.mount("/static", StaticFiles(directory="static", html=True), name="static")
+# Serve static files from "/static" path
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Serve index.html at root /
+# Serve the HTML page at "/"
 @app.get("/", response_class=HTMLResponse)
-async def root():
-    return FileResponse("static/index.html")
+async def read_index():
+    with open("static/index.html") as f:
+        return f.read()
 
-# Load spaCy model
-nlp = spacy.load("en_core_web_sm")
-
-# Ollama API URL
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "llama3"  # Change to the model you are running
-
-# POST endpoint to process prompt
+# Process prompt endpoint
 @app.post("/process_prompt")
 async def process_prompt(prompt: str = Form(...)):
-    # --- NER ---
+    # NER
     doc = nlp(prompt)
     entities = [(ent.text, ent.label_) for ent in doc.ents]
 
-    # --- LLM ---
-    ollama_payload = {
-        "model": OLLAMA_MODEL,
-        "prompt": prompt,
-        "stream": False
-    }
+    # LLM
+    headers = {"Authorization": f"Bearer {HF_API_TOKEN}"}
+    payload = {"inputs": prompt}
 
-    ollama_response = requests.post(OLLAMA_URL, json=ollama_payload)
-    llm_output = ollama_response.json().get("response", "")
+    response = requests.post(HF_API_URL, headers=headers, json=payload)
+    response_data = response.json()
 
-    # --- Logging ---
-    print("Prompt received:", prompt)
-    print("Named Entities:", entities)
-    print("LLM Response:", llm_output)
+    try:
+        llm_output = response_data[0]['generated_text']
+    except Exception as e:
+        llm_output = str(response_data)
 
-    # Return JSON response
     return JSONResponse(content={
         "entities": entities,
         "llm_response": llm_output
