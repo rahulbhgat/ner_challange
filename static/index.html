@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>LLM + NER Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            color: #333;
+        }
+        input[type="text"] {
+            width: 90%;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>LLM + NER Demo</h2>
+    <input type="text" id="promptInput" placeholder="Type your prompt here" />
+    <br/>
+    <button onclick="sendPrompt()">Send Prompt</button>
+
+    <div class="response" id="responseDiv">
+        <strong>Response will appear here...</strong>
+    </div>
+
+    <script>
+        async function sendPrompt() {
+            const prompt = document.getElementById('promptInput').value;
+            const responseDiv = document.getElementById('responseDiv');
+            
+            if (!prompt) {
+                responseDiv.innerHTML = "<strong>Please enter a prompt!</strong>";
+                return;
+            }
+
+            try {
+                const response = await fetch('/process_prompt', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({ prompt: prompt }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                responseDiv.innerHTML = `
+                    <h3>LLM Response:</h3>
+                    <p>${data.llm_response}</p>
+                    <h3>Named Entities:</h3>
+                    <ul>
+                        ${data.entities.map(e => `<li><strong>${e[0]}</strong> (${e[1]})</li>`).join('')}
+                    </ul>
+                `;
+            } catch (error) {
+                console.error(error);
+                responseDiv.innerHTML = `<strong>Error occurred: ${error.message}</strong>`;
+            }
+        }
+    </script>
+
+</body>
+</html>
